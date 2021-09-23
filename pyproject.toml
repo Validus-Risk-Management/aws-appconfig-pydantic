@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "appconfig"
+version = "0.1.0"
+description = "Helper package for using AWS App Config with Pydantic"
+authors = ["Validus Tech Team <techteam@validusrm.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+boto3 = ">=1.10.27"
+PyYAML = "^5.4.1"
+pydantic = "^1.8.2"
+
+[tool.poetry.dev-dependencies]
+black = "21.7b0"
+flake8 = "^3.9"
+isort = "^5.9"
+mypy = "^0.910"
+pre-commit = "^2.13"
+pytest = "^6.2"
+flake8-absolute-import = "^1.0"
+flake8-blind-except = "^0.2.0"
+flake8-breakpoint = "^1.1.0"
+flake8-bugbear = "^21.4.3"
+flake8-builtins = "^1.5.3"
+flake8-cognitive-complexity = "^0.1.0"
+flake8-comprehensions = "^3.5.0"
+flake8-docstrings = "^1.6"
+flake8-eradicate = "^1.1.0"
+flake8-implicit-str-concat = "^0.2.0"
+flake8-mutable = "^1.2.0"
+flake8-print = "^4.0.0"
+flake8-pytest-style = "^1.5.0"
+flake8-simplify = "^0.14.1"
+pep8-naming = "^0.12.1"
+pytest-mock = "^3.6.1"
+freezegun = "^1.1.0"
+pytest-cov = "^2.12.1"
+types-PyYAML = "^5.4.10"
+boto3-stubs = {extras = ["appconfig"], version = "^1.18.46"}
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+ignore_missing_imports = true
+disallow_untyped_defs = true
+plugins = "pydantic.mypy"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

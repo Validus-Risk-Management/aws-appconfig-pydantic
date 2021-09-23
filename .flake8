@@ -1,0 +1,10 @@
+[flake8]
+# To make flake8 compatible with black
+# https://black.readthedocs.io/en/stable/guides/using_black_with_other_tools.html#flake8
+max-line-length = 88
+extend-ignore = E203
+
+exclude = .git,__pycache__,__init__.py,.mypy_cache,.pytest_cache,.venv
+# We don't require module level docstrings for tests:
+per-file-ignores = tests/*:D100
+docstring-convention = google
