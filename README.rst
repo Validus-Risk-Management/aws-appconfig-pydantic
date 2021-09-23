@@ -19,15 +19,15 @@ Introducing `pydantic_appconfig`.
     .. code-block:: python
 
         class MyAppConfig(pydantic.BaseModel):
-        """My app config."""
+            """My app config."""
 
-        test_field_string: str
-        test_field_int: int
+            test_field_string: str
+            test_field_int: int
 
-        class Config:
-            """The pydantic config, including title for the JSON schema."""
+            class Config:
+                """The pydantic config, including title for the JSON schema."""
 
-            title = "MyAppConfig"
+                title = "MyAppConfig"
 
 #. Set up the config helper using your shiny config class:
 
@@ -38,7 +38,7 @@ Introducing `pydantic_appconfig`.
             appconfig_environment="AppConfig-Env",
             appconfig_profile="AppConfig-Profile",
             max_config_age=15,
-            fetch_on_init=True
+            fetch_on_init=True,
             config_schema_model=MyAppConfig,
         )
 
