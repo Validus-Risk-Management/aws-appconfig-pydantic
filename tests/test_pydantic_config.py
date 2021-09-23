@@ -19,6 +19,8 @@ from pydantic_appconfig import AppConfigHelper
 class TestConfig(BaseModel):
     """Test pydantic parsing."""
 
+    __test__ = False
+
     test_field_string: str
     test_field_int: int
 

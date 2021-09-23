@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "appconfig"
+name = "pydantic_appconfig"
 version = "0.1.0"
 description = "Helper package for using AWS App Config with Pydantic"
 authors = ["Validus Tech Team <techteam@validusrm.com>"]

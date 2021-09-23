@@ -6,7 +6,7 @@ Ever wanted to use
 for your Python app, but can't bear configs without
 `pydantic <https://pydantic-docs.helpmanual.io/>`_?
 
-Well, your days of using evil `.env` or `.ini` files, `ENVIRONEMENT` variables or even custom providers is over!
+Well, your days of using evil `.env` or `.ini` files, `ENVIRONMENT` variables or even custom providers is over!
 
 
 With a lot of inspiration from this AWS `sample <https://github.com/aws-samples/sample-python-helper-aws-appconfig>`_.
