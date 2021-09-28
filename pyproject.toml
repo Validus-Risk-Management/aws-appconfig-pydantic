@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pydantic_appconfig"
-version = "0.1.0"
+version = "0.1.1"
 description = "Helper package for using AWS App Config with Pydantic"
 include = ["pydantic_appconfig/py.typed"]
 authors = [
