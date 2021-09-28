@@ -4,7 +4,6 @@ Pydantic AWS AppConfig
 .. image:: https://badge.fury.io/py/pydantic-appconfig.svg
     :target: https://badge.fury.io/py/pydantic-appconfig
 
-
 .. image:: https://img.shields.io/pypi/pyversions/pydantic-appconfig
     :target: https://img.shields.io/pypi/pyversions/pydantic-appconfig
 
@@ -45,6 +44,8 @@ Introducing `pydantic_appconfig`.
 #. Set up the config helper using your shiny config class:
 
     .. code-block:: python
+
+        from pydantic_appconfig import AppConfigHelper
 
         my_config: AppConfigHelper[MyAppConfig] = AppConfigHelper(
             appconfig_application="AppConfig-App",
