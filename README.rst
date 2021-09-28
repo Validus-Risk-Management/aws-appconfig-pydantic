@@ -1,6 +1,14 @@
 Pydantic AWS AppConfig
 =======================
 
+.. image:: https://badge.fury.io/py/pydantic-appconfig.svg
+    :target: https://badge.fury.io/py/pydantic-appconfig
+
+
+.. image:: https://img.shields.io/pypi/pyversions/pydantic-appconfig
+    :target: https://img.shields.io/pypi/pyversions/pydantic-appconfig
+
+
 Ever wanted to use
 `AWS AppConfig <https://aws.amazon.com/systems-manager/features/appconfig>`_
 for your Python app, but can't bear configs without
@@ -8,6 +16,11 @@ for your Python app, but can't bear configs without
 
 Well, your days of using evil `.env` or `.ini` files, `ENVIRONMENT` variables or even custom providers is over!
 
+With just a simple
+
+.. code-block:: shell
+
+    pip install pydantic-appconfig
 
 With a lot of inspiration from this AWS `sample <https://github.com/aws-samples/sample-python-helper-aws-appconfig>`_.
 
