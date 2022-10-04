@@ -26,7 +26,7 @@ jobs:
       - name: Run pre-commit checks
         run: |
           poetry run pre-commit run --all
-      - name: Run pytest -v
+      - name: Run pytest
         run: |
           poetry run pytest --cov pydantic_appconfig --cov-report term-missing --cov-report xml
       - name: Run codacy-coverage-reporter
