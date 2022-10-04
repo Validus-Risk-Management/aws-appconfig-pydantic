@@ -43,7 +43,7 @@ def test_no_yaml_import(
     remove_yaml: Generator[None, Any, None],
 ) -> None:
     """Test the correct exception is raised when yaml can not be imported."""
-    client, stub, _ = appconfig_stub
+    client, stub, session = appconfig_stub
     mocker.patch.object(boto3, "client", return_value=client)
 
     a: app_config.AppConfigHelper[TestConfig] = app_config.AppConfigHelper(
@@ -52,6 +52,7 @@ def test_no_yaml_import(
         "AppConfig-Profile",
         15,
         config_schema_model=TestConfig,
+        session=session,
     )
     with pytest.raises(RuntimeError) as e:
         a.handle_yaml("")
