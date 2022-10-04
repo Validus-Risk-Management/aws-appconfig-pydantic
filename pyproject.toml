@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pydantic_appconfig"
-version = "0.1.5"
+version = "0.2.0"
 description = "Helper package for using AWS App Config with Pydantic"
 include = ["pydantic_appconfig/py.typed"]
 authors = [
@@ -11,7 +11,7 @@ readme = "README.rst"
 repository = "https://github.com/Validus-Risk-Management/aws-appconfig-pydantic"
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.8"
 boto3 = ">=1.10.27"
 PyYAML = "^5.4.1"
 pydantic = "^1.8.2"
