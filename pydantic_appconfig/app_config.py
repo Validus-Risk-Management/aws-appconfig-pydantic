@@ -136,12 +136,12 @@ class AppConfigHelper(Generic[ModelType]):
         return self._raw_config
 
     @property
-    def content_type(self) -> Union[None, str]:
+    def content_type(self) -> Optional[str]:
         """The content type of the configuration retrieved from AppConfig."""
         return self._content_type
 
     def update_config(self, force_update: bool = False) -> bool:
-        """Request the lastest configration.
+        """Request the latest configuration.
 
         `force_update`: set to True to request configuration event if it's not time yet
 

@@ -8,3 +8,6 @@ __pycache__/
 
 *.py[cod]
 *.egg
+.coverage
+coverage.xml
+.mypy_cache
