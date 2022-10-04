@@ -9,11 +9,10 @@ on:
 
 jobs:
   test:
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        python-version: [3.7, 3.8, 3.9, "3.10"]
 
     steps:
     - uses: actions/checkout@v2
@@ -24,13 +23,18 @@ jobs:
     - name: Install Poetry
       uses: abatilo/actions-poetry@v2.1.3
       with:
-        poetry-version: 1.1.8
+        poetry-version: 1.2.1
     - name: Install dependencies
       run: |
-        poetry install
+        poetry install --only main,test
     - name: Run pre-commit checks
       run: |
         poetry run pre-commit run --all
     - name: Run pytest -v
       run: |
-        poetry run pytest --cov pydantic_appconfig --cov-report term-missing
+        poetry run pytest --cov pydantic_appconfig --cov-report term-missing --cov-report xml
+    - name: Run codacy-coverage-reporter
+      uses: codacy/codacy-coverage-reporter-action@v1
+      with:
+        project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+        coverage-reports: coverage.xml

@@ -136,7 +136,7 @@ class AppConfigHelper(Generic[ModelType]):
         return self._raw_config
 
     @property
-    def content_type(self) -> Union[None, str]:
+    def content_type(self) -> Optional[str]:
         """The content type of the configuration retrieved from AppConfig."""
         return self._content_type
 
