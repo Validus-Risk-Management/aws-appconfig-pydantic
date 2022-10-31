@@ -43,7 +43,7 @@ def test_no_yaml_import(
     remove_yaml: Generator[None, Any, None],
 ) -> None:
     """Test the correct exception is raised when yaml can not be imported."""
-    client, stub, session = appconfig_stub
+    client, _, session = appconfig_stub
     mocker.patch.object(boto3, "client", return_value=client)
 
     a: app_config.AppConfigHelper[TestConfig] = app_config.AppConfigHelper(
