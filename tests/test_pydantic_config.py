@@ -1,6 +1,5 @@
 import io
 import json
-import socket
 from typing import Dict, Tuple, Union
 
 import boto3
@@ -36,14 +35,15 @@ def test_config_returned_as_model(
 ) -> None:
     """Tests the config gets updated."""
     client, stub, _ = appconfig_stub
+    _add_start_stub(stub)
+
     stub.add_response(
-        "get_configuration",
+        "get_latest_configuration",
         _build_response(
             {
                 "test_field_string": "testing_string",
                 "test_field_int": 42,
             },
-            "1",
             "application/json",
         ),
         _build_request(),
@@ -58,9 +58,9 @@ def test_config_returned_as_model(
     )
     result = a.update_config()
     assert result
+    assert a.config
     assert a.config.test_field_string == "testing_string"
     assert a.config.test_field_int == 42
-    assert a.config_version == "1"
 
 
 def test_yaml_config_returned_as_model(
@@ -69,14 +69,15 @@ def test_yaml_config_returned_as_model(
 ) -> None:
     """Tests the config gets updated."""
     client, stub, _ = appconfig_stub
+    _add_start_stub(stub)
+
     stub.add_response(
-        "get_configuration",
+        "get_latest_configuration",
         _build_response(
             {
                 "test_field_string": "testing_string",
                 "test_field_int": 42,
             },
-            "1",
             "application/x-yaml",
         ),
         _build_request(),
@@ -91,9 +92,9 @@ def test_yaml_config_returned_as_model(
     )
     result = a.update_config()
     assert result
+    assert a.config
     assert a.config.test_field_string == "testing_string"
     assert a.config.test_field_int == 42
-    assert a.config_version == "1"
 
 
 def test_config_model_parse_error(
@@ -101,13 +102,13 @@ def test_config_model_parse_error(
 ) -> None:
     """Tests the config rejected."""
     client, stub, _ = appconfig_stub
+    _add_start_stub(stub)
     stub.add_response(
-        "get_configuration",
+        "get_latest_configuration",
         _build_response(
             {
                 "xxx": "testing_string",
             },
-            "1",
             "application/json",
         ),
         _build_request(),
@@ -123,30 +124,19 @@ def test_config_model_parse_error(
     result = a.update_config()
     assert result
     with pytest.raises(ValidationError):
-        assert a.config.test_field_string
+        assert a.config
 
 
-def _build_request(
-    app: str = "AppConfig-App",
-    env: str = "AppConfig-Env",
-    profile: str = "AppConfig-Profile",
-    client_id: str = None,
-    version: str = "null",
-) -> Dict[str, str]:
-    if client_id is None:
-        client_id = socket.gethostname()
-    return {
-        "Application": app,
-        "ClientConfigurationVersion": str(version),
-        "ClientId": client_id,
-        "Configuration": profile,
-        "Environment": env,
-    }
+def _build_request(next_token: str = "token1234") -> Dict[str, str]:
+    return {"ConfigurationToken": next_token}
 
 
 def _build_response(
-    content: Union[Dict, str], version: str, content_type: str
-) -> Dict[str, Union[str, StreamingBody]]:
+    content: Union[Dict, str],
+    content_type: str,
+    next_token: str = "token5678",
+    poll: int = 30,
+) -> Dict[str, Union[str, int, StreamingBody]]:
     if content_type == "application/json":
         content_text = json.dumps(content).encode("utf-8")
     elif content_type == "application/x-yaml":
@@ -156,7 +146,30 @@ def _build_response(
     else:
         content_text = content.encode("utf-8")
     return {
-        "Content": StreamingBody(io.BytesIO(bytes(content_text)), len(content_text)),
-        "ConfigurationVersion": version,
+        "Configuration": StreamingBody(
+            io.BytesIO(bytes(content_text)), len(content_text)
+        ),
         "ContentType": content_type,
+        "NextPollConfigurationToken": next_token,
+        "NextPollIntervalInSeconds": poll,
     }
+
+
+def _add_start_stub(
+    stub: Stubber,
+    app_id: str = "AppConfig-App",
+    config_id: str = "AppConfig-Profile",
+    env_id: str = "AppConfig-Env",
+    poll: int = 15,
+    next_token: str = "token1234",
+) -> None:
+    stub.add_response(
+        "start_configuration_session",
+        {"InitialConfigurationToken": next_token},
+        {
+            "ApplicationIdentifier": app_id,
+            "ConfigurationProfileIdentifier": config_id,
+            "EnvironmentIdentifier": env_id,
+            "RequiredMinimumPollIntervalInSeconds": poll,
+        },
+    )

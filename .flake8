@@ -2,6 +2,7 @@
 # To make flake8 compatible with black
 # https://black.readthedocs.io/en/stable/guides/using_black_with_other_tools.html#flake8
 max-line-length = 88
+max-cognitive-complexity=10
 extend-ignore = E203
 
 exclude = .git,__pycache__,__init__.py,.mypy_cache,.pytest_cache,.venv
