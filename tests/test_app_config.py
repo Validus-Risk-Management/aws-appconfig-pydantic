@@ -18,11 +18,11 @@ from freezegun import freeze_time
 from pydantic_appconfig import AppConfigHelper
 
 
-def _build_request(next_token="token1234"):
+def _build_request(next_token="fake"):
     return {"ConfigurationToken": next_token}
 
 
-def _build_response(content, content_type, next_token="token5678", poll=30):
+def _build_response(content, content_type, next_token="fake", poll=30):
     if content_type == "application/json":
         content_text = json.dumps(content).encode("utf-8")
     elif content_type == "application/x-yaml":
@@ -45,7 +45,7 @@ def _add_start_stub(
     config_id="AppConfig-Profile",
     env_id="AppConfig-Env",
     poll=15,
-    next_token="token1234",
+    next_token="fake",
 ):
     stub.add_response(
         "start_configuration_session",
@@ -105,7 +105,7 @@ def test_appconfig_update(appconfig_stub, mocker):
     assert a.config_dict == "hello"
     assert a.raw_config == b"hello"
     assert a.content_type == "text/plain"
-    assert a._next_config_token == "token5678"
+    assert a._next_config_token == "fake"
     assert a._poll_interval == 30
 
 
@@ -129,13 +129,13 @@ def test_appconfig_update_interval(appconfig_stub, mocker):
     result = a.update_config()
     assert result
     assert a.config_dict == "hello"
-    assert a._next_config_token == "token5678"
+    assert a._next_config_token == "fake"
     assert a._poll_interval == 30
 
     result = a.update_config()
     assert not result
     assert a.config_dict == "hello"
-    assert a._next_config_token == "token5678"
+    assert a._next_config_token == "fake"
 
 
 def test_appconfig_force_update_same(appconfig_stub, mocker):
@@ -150,7 +150,7 @@ def test_appconfig_force_update_same(appconfig_stub, mocker):
     stub.add_response(
         "get_latest_configuration",
         _build_response("", "text/plain"),
-        _build_request(next_token="token5678"),
+        _build_request(next_token="fake"),
     )
     mocker.patch.object(boto3, "client", return_value=client)
     a = AppConfigHelper(
@@ -165,7 +165,7 @@ def test_appconfig_force_update_same(appconfig_stub, mocker):
     assert a.config_dict == "hello"
     assert a.raw_config == b"hello"
     assert a.content_type == "text/plain"
-    assert a._next_config_token == "token5678"
+    assert a._next_config_token == "fake"
     assert a._poll_interval == 30
 
     result = a.update_config(force_update=True)
@@ -173,7 +173,7 @@ def test_appconfig_force_update_same(appconfig_stub, mocker):
     assert a.config_dict == "hello"
     assert a.raw_config == b"hello"
     assert a.content_type == "text/plain"
-    assert a._next_config_token == "token5678"
+    assert a._next_config_token == "fake"
     assert a._poll_interval == 30
 
 
@@ -189,7 +189,7 @@ def test_appconfig_force_update_new(appconfig_stub, mocker):
     stub.add_response(
         "get_latest_configuration",
         _build_response("world", "text/plain", next_token="token9012"),
-        _build_request(next_token="token5678"),
+        _build_request(next_token="fake"),
     )
     mocker.patch.object(boto3, "client", return_value=client)
     a = AppConfigHelper(
@@ -204,7 +204,7 @@ def test_appconfig_force_update_new(appconfig_stub, mocker):
     assert a.config_dict == "hello"
     assert a.raw_config == b"hello"
     assert a.content_type == "text/plain"
-    assert a._next_config_token == "token5678"
+    assert a._next_config_token == "fake"
     assert a._poll_interval == 30
 
     result = a.update_config(force_update=True)
@@ -222,7 +222,7 @@ def test_appconfig_update_bad_request(appconfig_stub, mocker):
     _add_start_stub(stub)
     stub.add_response(
         "get_latest_configuration",
-        _build_response("hello", "text/plain", next_token="token5678"),
+        _build_response("hello", "text/plain", next_token="fake"),
         _build_request(),
     )
     stub.add_client_error(
@@ -248,7 +248,7 @@ def test_appconfig_update_bad_request(appconfig_stub, mocker):
     assert a.config_dict == "hello"
     assert a.raw_config == b"hello"
     assert a.content_type == "text/plain"
-    assert a._next_config_token == "token5678"
+    assert a._next_config_token == "fake"
     assert a._poll_interval == 30
 
     result = a.update_config(force_update=True)
@@ -294,7 +294,7 @@ def test_appconfig_fetch_on_read(appconfig_stub, mocker):
     stub.add_response(
         "get_latest_configuration",
         _build_response("world", "text/plain", next_token="token9012"),
-        _build_request(next_token="token5678"),
+        _build_request(next_token="fake"),
     )
     mocker.patch.object(boto3, "client", return_value=client)
     a = AppConfigHelper(
@@ -306,7 +306,7 @@ def test_appconfig_fetch_on_read(appconfig_stub, mocker):
         config_schema_model=pydantic.BaseModel(),
     )
     assert a.config_dict == "hello"
-    assert a._next_config_token == "token5678"
+    assert a._next_config_token == "fake"
     assert a.config_dict == "world"
     assert a._next_config_token == "token9012"
 
@@ -324,8 +324,8 @@ def test_appconfig_fetch_interval(appconfig_stub, mocker):
         )
         stub.add_response(
             "get_latest_configuration",
-            _build_response("world", "text/plain", poll=15, next_token="token1234"),
-            _build_request(next_token="token5678"),
+            _build_response("world", "text/plain", poll=15, next_token="fake"),
+            _build_request(next_token="fake"),
         )
         mocker.patch.object(boto3, "client", return_value=client)
         a = AppConfigHelper(
@@ -351,7 +351,7 @@ def test_appconfig_fetch_interval(appconfig_stub, mocker):
         result = a.update_config()
         assert result
         assert a.config_dict == "world"
-        assert a._next_config_token == "token1234"
+        assert a._next_config_token == "fake"
         assert a._last_update_time == time.time()
 
 
@@ -368,8 +368,8 @@ def test_appconfig_fetch_no_change(appconfig_stub, mocker):
         )
         stub.add_response(
             "get_latest_configuration",
-            _build_response("", "text/plain", poll=15, next_token="token1234"),
-            _build_request(next_token="token5678"),
+            _build_response("", "text/plain", poll=15, next_token="fake"),
+            _build_request(next_token="fake"),
         )
         mocker.patch.object(boto3, "client", return_value=client)
         a = AppConfigHelper(
@@ -391,7 +391,7 @@ def test_appconfig_fetch_no_change(appconfig_stub, mocker):
         result = a.update_config()
         assert not result
         assert a.config_dict == "hello"
-        assert a._next_config_token == "token1234"
+        assert a._next_config_token == "fake"
         assert a._last_update_time == time.time()
 
 

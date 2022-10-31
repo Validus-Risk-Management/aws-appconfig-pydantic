@@ -127,14 +127,14 @@ def test_config_model_parse_error(
         assert a.config
 
 
-def _build_request(next_token: str = "token1234") -> Dict[str, str]:
+def _build_request(next_token: str = "fake") -> Dict[str, str]:
     return {"ConfigurationToken": next_token}
 
 
 def _build_response(
     content: Union[Dict, str],
     content_type: str,
-    next_token: str = "token5678",
+    next_token: str = "fake",
     poll: int = 30,
 ) -> Dict[str, Union[str, int, StreamingBody]]:
     if content_type == "application/json":
@@ -161,7 +161,7 @@ def _add_start_stub(
     config_id: str = "AppConfig-Profile",
     env_id: str = "AppConfig-Env",
     poll: int = 15,
-    next_token: str = "token1234",
+    next_token: str = "fake",
 ) -> None:
     stub.add_response(
         "start_configuration_session",
