@@ -7,6 +7,11 @@ Pydantic AWS AppConfig
 .. image:: https://img.shields.io/pypi/pyversions/pydantic-appconfig
     :target: https://img.shields.io/pypi/pyversions/pydantic-appconfig
 
+.. image:: https://app.codacy.com/project/badge/Grade/7394b3a36fca46b38df857c415b3da3d
+    :target: https://www.codacy.com/gh/Validus-Risk-Management/aws-appconfig-pydantic/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Validus-Risk-Management/aws-appconfig-pydantic&amp;utm_campaign=Badge_Grade
+
+.. image:: https://app.codacy.com/project/badge/Coverage/7394b3a36fca46b38df857c415b3da3d
+    :target: https://www.codacy.com/gh/Validus-Risk-Management/aws-appconfig-pydantic/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Validus-Risk-Management/aws-appconfig-pydantic&amp;utm_campaign=Badge_Coverage
 
 Ever wanted to use
 `AWS AppConfig <https://aws.amazon.com/systems-manager/features/appconfig>`_
