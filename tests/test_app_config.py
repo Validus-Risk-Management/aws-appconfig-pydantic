@@ -1,8 +1,9 @@
 # type: ignore
 
+import datetime
 import io
 import json
-import socket
+import time
 
 import boto3
 import botocore
@@ -17,25 +18,11 @@ from freezegun import freeze_time
 from pydantic_appconfig import AppConfigHelper
 
 
-def _build_request(
-    app="AppConfig-App",
-    env="AppConfig-Env",
-    profile="AppConfig-Profile",
-    client_id=None,
-    version="null",
-):
-    if client_id is None:
-        client_id = socket.gethostname()
-    return {
-        "Application": app,
-        "ClientConfigurationVersion": str(version),
-        "ClientId": client_id,
-        "Configuration": profile,
-        "Environment": env,
-    }
+def _build_request(next_token="fake"):
+    return {"ConfigurationToken": next_token}
 
 
-def _build_response(content, version, content_type):
+def _build_response(content, content_type, next_token="fake", poll=30):
     if content_type == "application/json":
         content_text = json.dumps(content).encode("utf-8")
     elif content_type == "application/x-yaml":
@@ -43,10 +30,33 @@ def _build_response(content, version, content_type):
     else:
         content_text = content.encode("utf-8")
     return {
-        "Content": StreamingBody(io.BytesIO(bytes(content_text)), len(content_text)),
-        "ConfigurationVersion": version,
+        "Configuration": StreamingBody(
+            io.BytesIO(bytes(content_text)), len(content_text)
+        ),
         "ContentType": content_type,
+        "NextPollConfigurationToken": next_token,
+        "NextPollIntervalInSeconds": poll,
     }
+
+
+def _add_start_stub(
+    stub,
+    app_id="AppConfig-App",
+    config_id="AppConfig-Profile",
+    env_id="AppConfig-Env",
+    poll=15,
+    next_token="fake",
+):
+    stub.add_response(
+        "start_configuration_session",
+        {"InitialConfigurationToken": next_token},
+        {
+            "ApplicationIdentifier": app_id,
+            "ConfigurationProfileIdentifier": config_id,
+            "EnvironmentIdentifier": env_id,
+            "RequiredMinimumPollIntervalInSeconds": poll,
+        },
+    )
 
 
 def test_appconfig_init(appconfig_stub, mocker):
@@ -65,19 +75,21 @@ def test_appconfig_init(appconfig_stub, mocker):
     assert a.appconfig_application == "AppConfig-App"
     assert a.appconfig_environment == "AppConfig-Env"
     assert a.appconfig_profile == "AppConfig-Profile"
-    assert a.config_dict is None
-    assert a.config_version == "null"
+    assert a.config is None
     assert a._last_update_time == 0.0
     assert a.raw_config is None
     assert a.content_type is None
+    assert a._poll_interval == 15
+    assert a._next_config_token is None
 
 
 def test_appconfig_update(appconfig_stub, mocker):
     """Tests the config gets updated."""
     client, stub, _ = appconfig_stub
+    _add_start_stub(stub)
     stub.add_response(
-        "get_configuration",
-        _build_response("hello", "1", "text/plain"),
+        "get_latest_configuration",
+        _build_response("hello", "text/plain"),
         _build_request(),
     )
     mocker.patch.object(boto3, "client", return_value=client)
@@ -91,17 +103,19 @@ def test_appconfig_update(appconfig_stub, mocker):
     result = a.update_config()
     assert result
     assert a.config_dict == "hello"
-    assert a.config_version == "1"
     assert a.raw_config == b"hello"
     assert a.content_type == "text/plain"
+    assert a._next_config_token == "fake"
+    assert a._poll_interval == 30
 
 
 def test_appconfig_update_interval(appconfig_stub, mocker):
     """Tests interval based config updates."""
     client, stub, _ = appconfig_stub
+    _add_start_stub(stub)
     stub.add_response(
-        "get_configuration",
-        _build_response("hello", "1", "text/plain"),
+        "get_latest_configuration",
+        _build_response("hello", "text/plain"),
         _build_request(),
     )
     mocker.patch.object(boto3, "client", return_value=client)
@@ -115,26 +129,28 @@ def test_appconfig_update_interval(appconfig_stub, mocker):
     result = a.update_config()
     assert result
     assert a.config_dict == "hello"
-    assert a.config_version == "1"
+    assert a._next_config_token == "fake"
+    assert a._poll_interval == 30
 
     result = a.update_config()
     assert not result
     assert a.config_dict == "hello"
-    assert a.config_version == "1"
+    assert a._next_config_token == "fake"
 
 
 def test_appconfig_force_update_same(appconfig_stub, mocker):
     """Tests force update."""
     client, stub, _ = appconfig_stub
+    _add_start_stub(stub)
     stub.add_response(
-        "get_configuration",
-        _build_response("hello", "1", "text/plain"),
+        "get_latest_configuration",
+        _build_response("hello", "text/plain"),
         _build_request(),
     )
     stub.add_response(
-        "get_configuration",
-        _build_response("", "1", "text/plain"),
-        _build_request(version="1"),
+        "get_latest_configuration",
+        _build_response("", "text/plain"),
+        _build_request(next_token="fake"),
     )
     mocker.patch.object(boto3, "client", return_value=client)
     a = AppConfigHelper(
@@ -147,30 +163,33 @@ def test_appconfig_force_update_same(appconfig_stub, mocker):
     result = a.update_config()
     assert result
     assert a.config_dict == "hello"
-    assert a.config_version == "1"
     assert a.raw_config == b"hello"
     assert a.content_type == "text/plain"
+    assert a._next_config_token == "fake"
+    assert a._poll_interval == 30
 
     result = a.update_config(force_update=True)
     assert not result
     assert a.config_dict == "hello"
-    assert a.config_version == "1"
     assert a.raw_config == b"hello"
     assert a.content_type == "text/plain"
+    assert a._next_config_token == "fake"
+    assert a._poll_interval == 30
 
 
 def test_appconfig_force_update_new(appconfig_stub, mocker):
     """Tests force update."""
     client, stub, _ = appconfig_stub
+    _add_start_stub(stub)
     stub.add_response(
-        "get_configuration",
-        _build_response("hello", "1", "text/plain"),
+        "get_latest_configuration",
+        _build_response("hello", "text/plain"),
         _build_request(),
     )
     stub.add_response(
-        "get_configuration",
-        _build_response("world", "2", "text/plain"),
-        _build_request(version="1"),
+        "get_latest_configuration",
+        _build_response("world", "text/plain", next_token="token9012"),
+        _build_request(next_token="fake"),
     )
     mocker.patch.object(boto3, "client", return_value=client)
     a = AppConfigHelper(
@@ -183,24 +202,71 @@ def test_appconfig_force_update_new(appconfig_stub, mocker):
     result = a.update_config()
     assert result
     assert a.config_dict == "hello"
-    assert a.config_version == "1"
     assert a.raw_config == b"hello"
     assert a.content_type == "text/plain"
+    assert a._next_config_token == "fake"
+    assert a._poll_interval == 30
 
     result = a.update_config(force_update=True)
     assert result
     assert a.config_dict == "world"
-    assert a.config_version == "2"
     assert a.raw_config == b"world"
     assert a.content_type == "text/plain"
+    assert a._next_config_token == "token9012"
+    assert a._poll_interval == 30
+
+
+def test_appconfig_update_bad_request(appconfig_stub, mocker):
+    """Tests client error."""
+    client, stub, _ = appconfig_stub
+    _add_start_stub(stub)
+    stub.add_response(
+        "get_latest_configuration",
+        _build_response("hello", "text/plain", next_token="fake"),
+        _build_request(),
+    )
+    stub.add_client_error(
+        "get_latest_configuration",
+        service_error_code="BadRequestException",
+    )
+    _add_start_stub(stub)
+    stub.add_response(
+        "get_latest_configuration",
+        _build_response("world", "text/plain", next_token="token9012"),
+        _build_request(),
+    )
+    mocker.patch.object(boto3, "client", return_value=client)
+    a = AppConfigHelper(
+        "AppConfig-App",
+        "AppConfig-Env",
+        "AppConfig-Profile",
+        15,
+        config_schema_model=pydantic.BaseModel(),
+    )
+    result = a.update_config()
+    assert result
+    assert a.config_dict == "hello"
+    assert a.raw_config == b"hello"
+    assert a.content_type == "text/plain"
+    assert a._next_config_token == "fake"
+    assert a._poll_interval == 30
+
+    result = a.update_config(force_update=True)
+    assert result
+    assert a.config_dict == "world"
+    assert a.raw_config == b"world"
+    assert a.content_type == "text/plain"
+    assert a._next_config_token == "token9012"
+    assert a._poll_interval == 30
 
 
 def test_appconfig_fetch_on_init(appconfig_stub, mocker):
-    """Tests update on creation."""
+    """Tests fetch on init."""
     client, stub, _ = appconfig_stub
+    _add_start_stub(stub)
     stub.add_response(
-        "get_configuration",
-        _build_response("hello", "1", "text/plain"),
+        "get_latest_configuration",
+        _build_response("hello", "text/plain"),
         _build_request(),
     )
     mocker.patch.object(boto3, "client", return_value=client)
@@ -213,22 +279,22 @@ def test_appconfig_fetch_on_init(appconfig_stub, mocker):
         config_schema_model=pydantic.BaseModel(),
     )
     assert a.config_dict == "hello"
-    assert a.config_version == "1"
 
 
 @freeze_time("2020-08-01 12:00:00", auto_tick_seconds=20)
 def test_appconfig_fetch_on_read(appconfig_stub, mocker):
     """Tests fetch on read."""
     client, stub, _ = appconfig_stub
+    _add_start_stub(stub)
     stub.add_response(
-        "get_configuration",
-        _build_response("hello", "1", "text/plain"),
+        "get_latest_configuration",
+        _build_response("hello", "text/plain", poll=15),
         _build_request(),
     )
     stub.add_response(
-        "get_configuration",
-        _build_response("world", "2", "text/plain"),
-        _build_request(version="1"),
+        "get_latest_configuration",
+        _build_response("world", "text/plain", next_token="token9012"),
+        _build_request(next_token="fake"),
     )
     mocker.patch.object(boto3, "client", return_value=client)
     a = AppConfigHelper(
@@ -240,55 +306,102 @@ def test_appconfig_fetch_on_read(appconfig_stub, mocker):
         config_schema_model=pydantic.BaseModel(),
     )
     assert a.config_dict == "hello"
-    assert a.config_version == "1"
+    assert a._next_config_token == "fake"
     assert a.config_dict == "world"
-    assert a.config_version == "2"
+    assert a._next_config_token == "token9012"
 
 
-@freeze_time("2020-08-01 12:00:00", auto_tick_seconds=10)
 def test_appconfig_fetch_interval(appconfig_stub, mocker):
     """Tests fetch interval."""
-    client, stub, _ = appconfig_stub
-    stub.add_response(
-        "get_configuration",
-        _build_response("hello", "1", "text/plain"),
-        _build_request(),
-    )
-    stub.add_response(
-        "get_configuration",
-        _build_response("world", "2", "text/plain"),
-        _build_request(version="1"),
-    )
-    mocker.patch.object(boto3, "client", return_value=client)
-    a = AppConfigHelper(
-        "AppConfig-App",
-        "AppConfig-Env",
-        "AppConfig-Profile",
-        15,
-        config_schema_model=pydantic.BaseModel(),
-    )
-    result = a.update_config()
-    assert result
-    assert a.config_dict == "hello"
-    assert a.config_version == "1"
+    with freeze_time("2020-08-01 12:00:00") as frozen_time:
+        tick_amount = datetime.timedelta(seconds=10)
+        client, stub, _ = appconfig_stub
+        _add_start_stub(stub)
+        stub.add_response(
+            "get_latest_configuration",
+            _build_response("hello", "text/plain", poll=15),
+            _build_request(),
+        )
+        stub.add_response(
+            "get_latest_configuration",
+            _build_response("world", "text/plain", poll=15, next_token="fake"),
+            _build_request(next_token="fake"),
+        )
+        mocker.patch.object(boto3, "client", return_value=client)
+        a = AppConfigHelper(
+            "AppConfig-App",
+            "AppConfig-Env",
+            "AppConfig-Profile",
+            15,
+            config_schema_model=pydantic.BaseModel(),
+        )
+        result = a.update_config()
+        update_time = time.time()
+        assert result
+        assert a.config_dict == "hello"
+        assert a._last_update_time == update_time
 
-    result = a.update_config()
-    assert not result
-    assert a.config_dict == "hello"
-    assert a.config_version == "1"
+        frozen_time.tick(tick_amount)
+        result = a.update_config()
+        assert not result
+        assert a.config_dict == "hello"
+        assert a._last_update_time == update_time
 
-    result = a.update_config()
-    assert result
-    assert a.config_dict == "world"
-    assert a.config_version == "2"
+        frozen_time.tick(tick_amount)
+        result = a.update_config()
+        assert result
+        assert a.config_dict == "world"
+        assert a._next_config_token == "fake"
+        assert a._last_update_time == time.time()
+
+
+def test_appconfig_fetch_no_change(appconfig_stub, mocker):
+    """Test nothing changes."""
+    with freeze_time("2020-08-01 12:00:00") as frozen_time:
+        tick_amount = datetime.timedelta(seconds=10)
+        client, stub, _ = appconfig_stub
+        _add_start_stub(stub)
+        stub.add_response(
+            "get_latest_configuration",
+            _build_response("hello", "text/plain", poll=15),
+            _build_request(),
+        )
+        stub.add_response(
+            "get_latest_configuration",
+            _build_response("", "text/plain", poll=15, next_token="fake"),
+            _build_request(next_token="fake"),
+        )
+        mocker.patch.object(boto3, "client", return_value=client)
+        a = AppConfigHelper(
+            "AppConfig-App",
+            "AppConfig-Env",
+            "AppConfig-Profile",
+            15,
+            config_schema_model=pydantic.BaseModel(),
+        )
+        result = a.update_config()
+        update_time = time.time()
+        assert result
+        assert a.config_dict == "hello"
+        assert a._last_update_time == update_time
+
+        frozen_time.tick(tick_amount)
+        frozen_time.tick(tick_amount)
+
+        result = a.update_config()
+        assert not result
+        assert a.config_dict == "hello"
+        assert a._next_config_token == "fake"
+        assert a._last_update_time == time.time()
 
 
 def test_appconfig_yaml(appconfig_stub, mocker):
-    """Tests yaml parsing."""
+    """Test with yaml."""
     client, stub, _ = appconfig_stub
+    _add_start_stub(stub)
     stub.add_response(
-        "get_configuration",
-        _build_response({"hello": "world"}, "1", "application/x-yaml"),
+        "get_latest_configuration",
+        _build_response({"hello": "world"}, "application/x-yaml"),
         _build_request(),
     )
     mocker.patch.object(boto3, "client", return_value=client)
@@ -301,16 +414,16 @@ def test_appconfig_yaml(appconfig_stub, mocker):
     )
     a.update_config()
     assert a.config_dict == {"hello": "world"}
-    assert a.config_version == "1"
     assert a.content_type == "application/x-yaml"
 
 
 def test_appconfig_json(appconfig_stub, mocker):
-    """Tests JSON parsing."""
+    """Test with json."""
     client, stub, _ = appconfig_stub
+    _add_start_stub(stub)
     stub.add_response(
-        "get_configuration",
-        _build_response({"hello": "world"}, "1", "application/json"),
+        "get_latest_configuration",
+        _build_response({"hello": "world"}, "application/json"),
         _build_request(),
     )
     mocker.patch.object(boto3, "client", return_value=client)
@@ -323,36 +436,16 @@ def test_appconfig_json(appconfig_stub, mocker):
     )
     a.update_config()
     assert a.config_dict == {"hello": "world"}
-    assert a.config_version == "1"
     assert a.content_type == "application/json"
 
 
-def test_appconfig_client(appconfig_stub, mocker):
-    """Tests the client."""
-    client, stub, _ = appconfig_stub
-    stub.add_response(
-        "get_configuration",
-        _build_response({"hello": "world"}, "1", "application/json"),
-        _build_request(client_id="hello"),
-    )
-    mocker.patch.object(boto3, "client", return_value=client)
-    a = AppConfigHelper(
-        "AppConfig-App",
-        "AppConfig-Env",
-        "AppConfig-Profile",
-        15,
-        client_id="hello",
-        config_schema_model=pydantic.BaseModel(),
-    )
-    a.update_config()
-
-
 def test_appconfig_session(appconfig_stub, mocker):
-    """Tests the session."""
+    """Test using with a Session."""
     client, stub, session = appconfig_stub
+    _add_start_stub(stub)
     stub.add_response(
-        "get_configuration",
-        _build_response({"hello": "world"}, "1", "application/json"),
+        "get_latest_configuration",
+        _build_response({"hello": "world"}, "application/json"),
         _build_request(),
     )
     mocker.patch.object(boto3, "client", return_value=client)
@@ -372,15 +465,14 @@ def test_bad_json(appconfig_stub, mocker):
     """Tests incorrect JSON config."""
     client, stub, session = appconfig_stub
     content_text = """{"broken": "json",}""".encode("utf-8")
+    _add_start_stub(stub)
+    broken_response = _build_response({}, "application/json")
+    broken_response["Configuration"] = StreamingBody(
+        io.BytesIO(bytes(content_text)), len(content_text)
+    )
     stub.add_response(
-        "get_configuration",
-        {
-            "Content": StreamingBody(
-                io.BytesIO(bytes(content_text)), len(content_text)
-            ),
-            "ConfigurationVersion": "1",
-            "ContentType": "application/json",
-        },
+        "get_latest_configuration",
+        broken_response,
         _build_request(),
     )
     mocker.patch.object(boto3, "client", return_value=client)
@@ -408,15 +500,14 @@ def test_bad_yaml(appconfig_stub, mocker):
     """.encode(
         "utf-8"
     )
+    _add_start_stub(stub)
+    broken_response = _build_response({}, "application/x-yaml")
+    broken_response["Configuration"] = StreamingBody(
+        io.BytesIO(bytes(content_text)), len(content_text)
+    )
     stub.add_response(
-        "get_configuration",
-        {
-            "Content": StreamingBody(
-                io.BytesIO(bytes(content_text)), len(content_text)
-            ),
-            "ConfigurationVersion": "1",
-            "ContentType": "application/x-yaml",
-        },
+        "get_latest_configuration",
+        broken_response,
         _build_request(),
     )
     mocker.patch.object(boto3, "client", return_value=client)
@@ -437,16 +528,11 @@ def test_bad_yaml(appconfig_stub, mocker):
 def test_unknown_content_type(appconfig_stub, mocker):
     """Tests unknown content response."""
     client, stub, session = appconfig_stub
-    content_text = """hello world""".encode("utf-8")
+    content_text = "hello world"
+    _add_start_stub(stub)
     stub.add_response(
-        "get_configuration",
-        {
-            "Content": StreamingBody(
-                io.BytesIO(bytes(content_text)), len(content_text)
-            ),
-            "ConfigurationVersion": "1",
-            "ContentType": "image/jpeg",
-        },
+        "get_latest_configuration",
+        _build_response(content_text, "image/jpeg"),
         _build_request(),
     )
     mocker.patch.object(boto3, "client", return_value=client)
@@ -460,23 +546,18 @@ def test_unknown_content_type(appconfig_stub, mocker):
     a.update_config()
     assert a.config_dict == b"hello world"
     assert a.content_type == "image/jpeg"
-    assert a.raw_config == content_text
+    assert a.raw_config == content_text.encode("utf-8")
 
 
 def test_bad_request(appconfig_stub_ignore_pending, mocker):
     """Tests bad request."""
     client, stub, session = appconfig_stub_ignore_pending
-    content_text = """hello world""".encode("utf-8")
+    content_text = "hello world"
+    _add_start_stub(stub, "", "", "")
     stub.add_response(
-        "get_configuration",
-        {
-            "Content": StreamingBody(
-                io.BytesIO(bytes(content_text)), len(content_text)
-            ),
-            "ConfigurationVersion": "1",
-            "ContentType": "image/jpeg",
-        },
-        _build_request("", "", ""),
+        "get_latest_configuration",
+        _build_response(content_text, "image/jpeg"),
+        _build_request(),
     )
     mocker.patch.object(boto3, "client", return_value=client)
     with pytest.raises(botocore.exceptions.ParamValidationError):

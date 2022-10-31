@@ -12,7 +12,7 @@ from botocore.stub import Stubber
 def appconfig_stub() -> Iterator[Tuple[BaseClient, Stubber, Session]]:
     """Stubs the appconfig boto client."""
     session = botocore.session.get_session()
-    client = session.create_client("appconfig", region_name="us-east-1")
+    client = session.create_client("appconfigdata", region_name="us-east-1")
     with Stubber(client) as stubber:
         yield client, stubber, session
         stubber.assert_no_pending_responses()
@@ -22,6 +22,6 @@ def appconfig_stub() -> Iterator[Tuple[BaseClient, Stubber, Session]]:
 def appconfig_stub_ignore_pending() -> Iterator[Tuple[BaseClient, Stubber, Session]]:
     """Stubs the appconfig boto client without assert_no_pending_responses."""
     session = botocore.session.get_session()
-    client = session.create_client("appconfig", region_name="us-east-1")
+    client = session.create_client("appconfigdata", region_name="us-east-1")
     with Stubber(client) as stubber:
         yield client, stubber, session

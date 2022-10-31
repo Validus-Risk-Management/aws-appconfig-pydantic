@@ -2,11 +2,11 @@
 
 
 import json
-import socket
 import time
 from typing import Any, Dict, Generic, Optional, Type, TypeVar, Union
 
 import boto3
+import botocore.exceptions
 import pydantic
 
 try:
@@ -34,8 +34,8 @@ class AppConfigHelper(Generic[ModelType]):
     update the configuration. Set it low enough that your application
     receives new configuration in good time, but not so high that you are
     unnecessarily polling the AWS AppConfig service. A minimum of 15 seconds
-    is enforced to help avoid throttling.
-
+    is enforced to help avoid throttling. Note that the value can be updated
+    internally by the response from AppConfig.
     If you need to override credentials or AWS Region, set `session` to a
     preconfigured `boto3.Session` object.
 
@@ -45,8 +45,6 @@ class AppConfigHelper(Generic[ModelType]):
     If `fetch_on_read` is set, every time the `config` property is read, the
     configuration will be refreshed (if it has been at least `max_config_age`
     seconds since the last refresh).
-
-    Use `client_id` to override the default (the hostname).
     """
 
     def __init__(
@@ -60,13 +58,12 @@ class AppConfigHelper(Generic[ModelType]):
         session: Optional[boto3.Session] = None,
         fetch_on_init: bool = False,
         fetch_on_read: bool = False,
-        client_id: Optional[str] = None,
     ) -> None:
         """Init a new helper."""
         if isinstance(session, boto3.Session):
-            self._client = session.client("appconfig")
+            self._client = session.client("appconfigdata")
         else:
-            self._client = boto3.client("appconfig")
+            self._client = boto3.client("appconfigdata")
         self._appconfig_profile = appconfig_profile
         self._appconfig_environment = appconfig_environment
         self._appconfig_application = appconfig_application
@@ -74,13 +71,13 @@ class AppConfigHelper(Generic[ModelType]):
         if max_config_age < 15:
             raise ValueError("max_config_age must be at least 15 seconds")
         self._max_config_age = max_config_age
-        self._client_id = socket.gethostname() if client_id is None else client_id
-        self._configuration_version: str = "null"
         self._last_update_time = 0.0
         self._config: Optional[Union[Dict[Any, Any], str, bytes]] = None
         self._raw_config: Optional[bytes] = None
         self._content_type: Optional[str] = None
         self._fetch_on_read = fetch_on_read
+        self._next_config_token = None  # type: Optional[str]
+        self._poll_interval = max_config_age
         if fetch_on_init:
             self.update_config()
 
@@ -100,12 +97,7 @@ class AppConfigHelper(Generic[ModelType]):
         return self._appconfig_application
 
     @property
-    def config_version(self) -> str:
-        """The configuration version last received."""
-        return self._configuration_version
-
-    @property
-    def config(self) -> ModelType:
+    def config(self) -> Optional[ModelType]:
         """The application configuration content.
 
         If initialised with `fetch_on_read` = True, will attempt to update the
@@ -113,7 +105,11 @@ class AppConfigHelper(Generic[ModelType]):
 
         Returned as the Pydantic model specified in `config_schema_model`
         """
-        return self._config_schema_model.parse_obj(self.config_dict)
+        return (
+            self._config_schema_model.parse_obj(self.config_dict)
+            if self.config_dict
+            else None
+        )
 
     @property
     def config_dict(self) -> Optional[Union[Dict[Any, Any], str, bytes]]:
@@ -140,6 +136,17 @@ class AppConfigHelper(Generic[ModelType]):
         """The content type of the configuration retrieved from AppConfig."""
         return self._content_type
 
+    def start_session(self) -> None:
+        """Start the session and receive the next config token and poll interval."""
+        response = self._client.start_configuration_session(
+            ApplicationIdentifier=self._appconfig_application,
+            ConfigurationProfileIdentifier=self._appconfig_profile,
+            EnvironmentIdentifier=self._appconfig_environment,
+            RequiredMinimumPollIntervalInSeconds=self._max_config_age,
+        )
+        self._next_config_token = response["InitialConfigurationToken"]
+        self._poll_interval = self._max_config_age
+
     def update_config(self, force_update: bool = False) -> bool:
         """Request the latest configuration.
 
@@ -149,23 +156,22 @@ class AppConfigHelper(Generic[ModelType]):
         indicates that no attempt was made, or that no new version was found.
         """
         if (
-            time.time() - self._last_update_time < self._max_config_age
+            time.time() - self._last_update_time < self._poll_interval
         ) and not force_update:
             return False
 
-        response = self._client.get_configuration(
-            Application=self._appconfig_application,
-            Environment=self._appconfig_environment,
-            Configuration=self._appconfig_profile,
-            ClientId=self._client_id,
-            ClientConfigurationVersion=self._configuration_version,
-        )
+        if self._next_config_token is None:
+            self.start_session()
 
-        if response["ConfigurationVersion"] == self._configuration_version:
+        response = self._safe_get_latest_configuration()
+
+        self._next_config_token = response["NextPollConfigurationToken"]
+        self._poll_interval = int(response["NextPollIntervalInSeconds"])
+
+        content: bytes = response["Configuration"].read()
+        if content == b"":
             self._last_update_time = time.time()
             return False
-
-        content = response["Content"].read()  # type: ignore
 
         if response["ContentType"] == "application/x-yaml":
             self.handle_yaml(content)
@@ -177,10 +183,21 @@ class AppConfigHelper(Generic[ModelType]):
             self._config = content
 
         self._last_update_time = time.time()
-        self._configuration_version = response["ConfigurationVersion"]
         self._raw_config = content
         self._content_type = response["ContentType"]
         return True
+
+    def _safe_get_latest_configuration(self) -> Dict:
+        try:
+            response = self._client.get_latest_configuration(
+                ConfigurationToken=self._next_config_token
+            )
+        except botocore.exceptions.ClientError:
+            self.start_session()
+            response = self._client.get_latest_configuration(
+                ConfigurationToken=self._next_config_token
+            )
+        return response
 
     def handle_json(self, content: Any) -> None:
         """Deals with JSON configs."""
