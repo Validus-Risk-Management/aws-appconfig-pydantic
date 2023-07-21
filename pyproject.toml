@@ -15,7 +15,7 @@ python = "^3.8"
 boto3 = "^1.20.8"
 botocore = "^1.23.8"
 PyYAML = "^6.0"
-pydantic = "^1.8.2"
+pydantic = "^2.0.3"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.2"
@@ -27,7 +27,7 @@ pre-commit = "^2.13"
 [tool.poetry.group.dev.dependencies]
 black = "^22.10.0"
 flake8 = "^3.9"
-isort = "^5.9"
+isort = "^5.12"
 mypy = "^0.910"
 pre-commit = "^2.13"
 flake8-absolute-import = "^1.0"
@@ -45,7 +45,7 @@ flake8-print = "^4.0.0"
 flake8-pytest-style = "^1.5.0"
 flake8-simplify = "^0.14.1"
 pep8-naming = "^0.12.1"
-types-PyYAML = "^5.4.10"
+types-PyYAML = "^6.0.12"
 boto3-stubs = "^1.20.8"
 
 [tool.isort]

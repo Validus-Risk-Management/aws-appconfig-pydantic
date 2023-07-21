@@ -8,7 +8,7 @@ import pytest
 from boto3 import Session
 from botocore.client import BaseClient
 from botocore.stub import Stubber
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from pytest_mock import MockerFixture
 
 from pydantic_appconfig import app_config
@@ -21,11 +21,7 @@ class TestConfig(BaseModel):
 
     test_field_string: str
     test_field_int: int
-
-    class Config:
-        """The config, including title for the JSON schema."""
-
-        title = "TestConfig"
+    model_config = ConfigDict(title="TestConfig")
 
 
 @pytest.fixture()

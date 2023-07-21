@@ -9,7 +9,7 @@ from botocore.client import BaseClient
 from botocore.response import StreamingBody
 from botocore.session import Session
 from botocore.stub import Stubber
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 from pytest_mock import MockerFixture
 
 from pydantic_appconfig import AppConfigHelper
@@ -22,11 +22,7 @@ class TestConfig(BaseModel):
 
     test_field_string: str
     test_field_int: int
-
-    class Config:
-        """The config, including title for the JSON schema."""
-
-        title = "TestConfig"
+    model_config = ConfigDict(title="TestConfig")
 
 
 def test_config_returned_as_model(
