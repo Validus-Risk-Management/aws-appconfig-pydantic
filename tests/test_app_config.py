@@ -68,7 +68,7 @@ def test_appconfig_init(appconfig_stub, mocker):
         "AppConfig-Env",
         "AppConfig-Profile",
         15,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
 
     assert isinstance(a, AppConfigHelper)
@@ -98,7 +98,7 @@ def test_appconfig_update(appconfig_stub, mocker):
         "AppConfig-Env",
         "AppConfig-Profile",
         15,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     result = a.update_config()
     assert result
@@ -124,7 +124,7 @@ def test_appconfig_update_interval(appconfig_stub, mocker):
         "AppConfig-Env",
         "AppConfig-Profile",
         15,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     result = a.update_config()
     assert result
@@ -158,7 +158,7 @@ def test_appconfig_force_update_same(appconfig_stub, mocker):
         "AppConfig-Env",
         "AppConfig-Profile",
         15,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     result = a.update_config()
     assert result
@@ -197,7 +197,7 @@ def test_appconfig_force_update_new(appconfig_stub, mocker):
         "AppConfig-Env",
         "AppConfig-Profile",
         15,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     result = a.update_config()
     assert result
@@ -241,7 +241,7 @@ def test_appconfig_update_bad_request(appconfig_stub, mocker):
         "AppConfig-Env",
         "AppConfig-Profile",
         15,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     result = a.update_config()
     assert result
@@ -276,7 +276,7 @@ def test_appconfig_fetch_on_init(appconfig_stub, mocker):
         "AppConfig-Profile",
         15,
         fetch_on_init=True,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     assert a.config_dict == "hello"
 
@@ -303,7 +303,7 @@ def test_appconfig_fetch_on_read(appconfig_stub, mocker):
         "AppConfig-Profile",
         15,
         fetch_on_read=True,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     assert a.config_dict == "hello"
     assert a._next_config_token == "fake"
@@ -333,7 +333,7 @@ def test_appconfig_fetch_interval(appconfig_stub, mocker):
             "AppConfig-Env",
             "AppConfig-Profile",
             15,
-            config_schema_model=pydantic.BaseModel(),
+            config_schema_model=pydantic.BaseModel,
         )
         result = a.update_config()
         update_time = time.time()
@@ -377,7 +377,7 @@ def test_appconfig_fetch_no_change(appconfig_stub, mocker):
             "AppConfig-Env",
             "AppConfig-Profile",
             15,
-            config_schema_model=pydantic.BaseModel(),
+            config_schema_model=pydantic.BaseModel,
         )
         result = a.update_config()
         update_time = time.time()
@@ -410,7 +410,7 @@ def test_appconfig_yaml(appconfig_stub, mocker):
         "AppConfig-Env",
         "AppConfig-Profile",
         15,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     a.update_config()
     assert a.config_dict == {"hello": "world"}
@@ -432,7 +432,7 @@ def test_appconfig_json(appconfig_stub, mocker):
         "AppConfig-Env",
         "AppConfig-Profile",
         15,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     a.update_config()
     assert a.config_dict == {"hello": "world"}
@@ -456,7 +456,7 @@ def test_appconfig_session(appconfig_stub, mocker):
         "AppConfig-Profile",
         15,
         session=session,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     a.update_config()
 
@@ -481,7 +481,7 @@ def test_bad_json(appconfig_stub, mocker):
         "AppConfig-Env",
         "AppConfig-Profile",
         15,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     with pytest.raises(
         ValueError,
@@ -516,7 +516,7 @@ def test_bad_yaml(appconfig_stub, mocker):
         "AppConfig-Env",
         "AppConfig-Profile",
         15,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     with pytest.raises(
         ValueError,
@@ -541,7 +541,7 @@ def test_unknown_content_type(appconfig_stub, mocker):
         "AppConfig-Env",
         "AppConfig-Profile",
         15,
-        config_schema_model=pydantic.BaseModel(),
+        config_schema_model=pydantic.BaseModel,
     )
     a.update_config()
     assert a.config_dict == b"hello world"
@@ -562,7 +562,7 @@ def test_bad_request(appconfig_stub_ignore_pending, mocker):
     mocker.patch.object(boto3, "client", return_value=client)
     with pytest.raises(botocore.exceptions.ParamValidationError):
         AppConfigHelper(
-            "", "", "", 15, config_schema_model=pydantic.BaseModel()
+            "", "", "", 15, config_schema_model=pydantic.BaseModel
         ).update_config()
 
 
@@ -572,5 +572,5 @@ def test_bad_interval(appconfig_stub, mocker):
     mocker.patch.object(boto3, "client", return_value=client)
     with pytest.raises(ValueError, match="max_config_age must be at least 15 seconds"):
         _ = AppConfigHelper(
-            "Any", "Any", "Any", 10, config_schema_model=pydantic.BaseModel()
+            "Any", "Any", "Any", 10, config_schema_model=pydantic.BaseModel
         )
